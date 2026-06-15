@@ -1,32 +1,40 @@
 import { useEffect, useRef, useState } from 'react';
-import { Brain, Code2, Eye, CheckCircle, Shield, Wrench } from 'lucide-react';
 import { tools } from '../data/benchmarkData';
 
 const loopSteps = [
   {
-    icon: <Brain size={20} />,
     label: 'Thought',
-    color: 'text-primary-light border-primary/40 bg-primary/10',
-    desc: 'The LLM reads the issue and the tool manual, then reasons about which file to look at first.',
+    color: 'text-zinc-200',
+    border: 'border-zinc-700',
+    desc: 'LLM reads the issue and the tool manual. Reasons about which file to look at and what to call.',
   },
   {
-    icon: <Code2 size={20} />,
     label: 'Code',
-    color: 'text-accent border-accent/40 bg-accent/10',
-    desc: 'It emits a Python code block calling MCP tools: read_file, grep, edit_file, run_command…',
+    color: 'text-primary',
+    border: 'border-primary/40',
+    desc: 'Emits a Python code block: read_file, grep_context, edit_file, run_command — real tool calls, not pseudocode.',
   },
   {
-    icon: <Eye size={20} />,
     label: 'Observation',
-    color: 'text-amber-400 border-amber-400/40 bg-amber-400/10',
-    desc: 'The sandbox executes the code and returns real stdout/stderr. The LLM sees actual results — no hallucination possible.',
+    color: 'text-zinc-400',
+    border: 'border-zinc-600',
+    desc: 'Sandbox executes the code and returns real stdout/stderr. The LLM sees actual results — no hallucinated output.',
   },
   {
-    icon: <CheckCircle size={20} />,
     label: 'final_answer()',
-    color: 'text-success border-success/40 bg-success/10',
-    desc: 'When tests pass, the agent calls final_answer() with the patch. The loop exits.',
+    color: 'text-success',
+    border: 'border-success/40',
+    desc: 'When tests pass, the agent calls final_answer() with the patch diff. Loop exits.',
   },
+];
+
+const securityRows = [
+  ['Import firewall', 'Allowlist-only — os, socket, subprocess blocked'],
+  ['Filesystem guard', 'open() patched against allowed_directories'],
+  ['Network blocked', 'urllib, http, ssl, requests blocked at import'],
+  ['CPU timeout', 'Daemon thread killed after N seconds'],
+  ['Memory cap', 'resource.setrlimit(RLIMIT_AS) on Linux'],
+  ['Builtins removed', 'eval, exec, compile, input stripped'],
 ];
 
 const HowItWorks = () => {
@@ -40,84 +48,73 @@ const HowItWorks = () => {
   }, []);
 
   return (
-    <section id="how-it-works" ref={ref} className="py-24 bg-surface/30">
-      <div className="max-w-6xl mx-auto px-6">
+    <section id="how-it-works" ref={ref} className="py-24">
+      <div className="max-w-5xl mx-auto px-6">
+
         <div className={`section-reveal ${visible ? 'visible' : ''}`}>
+          <p className="font-mono text-xs text-muted tracking-widest uppercase mb-3">Architecture</p>
           <h2 className="text-3xl md:text-4xl font-bold mb-2">
-            How It <span className="gradient-text">Works</span>
+            How it works
           </h2>
-          <div className="w-16 h-1 bg-primary rounded-full mb-4" />
-          <p className="text-muted mb-16 max-w-xl">
-            A tight agentic loop runs inside a Docker container. Each iteration the LLM reasons,
-            writes code, and gets back the real execution result before the next step.
-          </p>
+          <hr className="rule-amber w-12 mb-12" />
         </div>
 
-        {/* Loop diagram */}
-        <div className={`grid md:grid-cols-4 gap-0 mb-20 section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.15s' }}>
-          {loopSteps.map((s, i) => (
-            <div key={s.label} className="flex flex-col md:flex-row items-center">
-              <div className="flex-1 flex flex-col items-center text-center p-6">
-                <div className={`w-12 h-12 rounded-xl border flex items-center justify-center mb-4 ${s.color}`}>
-                  {s.icon}
+        {/* The loop — vertical list, not cards */}
+        <div className={`mb-16 section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.1s' }}>
+          <div className="relative pl-6 border-l border-border space-y-8">
+            {loopSteps.map((s, i) => (
+              <div key={s.label} className="relative">
+                {/* Dot on the line */}
+                <div className={`absolute -left-[25px] w-3 h-3 rounded-full border-2 bg-bg ${s.border}`} />
+                <div className="flex items-baseline gap-4">
+                  <span className={`font-mono text-sm font-semibold ${s.color} w-32 shrink-0`}>
+                    {String(i + 1).padStart(2, '0')} {s.label}
+                  </span>
+                  <span className="text-sm text-zinc-400 leading-relaxed">{s.desc}</span>
                 </div>
-                <div className="font-mono font-semibold text-sm mb-2">{s.label}</div>
-                <div className="text-xs text-muted leading-relaxed">{s.desc}</div>
               </div>
-              {i < loopSteps.length - 1 && (
-                <div className="text-border text-xl font-light md:mb-12 mb-2 rotate-90 md:rotate-0">→</div>
-              )}
+            ))}
+            {/* Loop back arrow */}
+            <div className="relative">
+              <div className="absolute -left-[25px] w-3 h-3 flex items-center justify-center">
+                <span className="text-zinc-600 text-xs">↺</span>
+              </div>
+              <span className="font-mono text-xs text-zinc-600">repeats until final_answer() or limit reached</span>
             </div>
-          ))}
+          </div>
         </div>
 
         {/* Two-column: security + tools */}
-        <div className={`grid md:grid-cols-2 gap-8 section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.3s' }}>
-          {/* Sandbox security */}
-          <div className="bg-surface border border-border rounded-2xl p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 rounded-lg bg-primary/10 text-primary-light">
-                <Shield size={20} />
-              </div>
-              <h3 className="font-semibold text-lg">Sandbox Security</h3>
-            </div>
-            <div className="space-y-3">
-              {[
-                ['Import firewall', 'Allowlist-only imports — os, socket, subprocess blocked'],
-                ['Filesystem guard', 'open() patched to check against allowed_directories'],
-                ['Network blocked', 'urllib, http, ssl, requests blocked at import level'],
-                ['CPU timeout', 'Daemon thread killed after N seconds'],
-                ['Memory cap', 'resource.setrlimit(RLIMIT_AS) on Linux'],
-                ['Builtins removed', 'eval, exec, compile, input stripped from namespace'],
-              ].map(([name, desc]) => (
-                <div key={name} className="flex gap-3">
-                  <span className="text-success mt-0.5 shrink-0">✓</span>
-                  <div>
-                    <span className="font-mono text-xs text-primary-light">{name}</span>
-                    <span className="text-muted text-xs ml-2">{desc}</span>
-                  </div>
+        <div className={`grid md:grid-cols-2 gap-6 section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.2s' }}>
+
+          {/* Sandbox */}
+          <div className="border border-border rounded-lg p-5">
+            <div className="font-mono text-xs text-muted tracking-widest uppercase mb-4">Sandbox isolation</div>
+            <table className="w-full text-xs">
+              <tbody>
+                {securityRows.map(([name, desc]) => (
+                  <tr key={name} className="border-b border-border/50 last:border-0">
+                    <td className="py-2 pr-3 font-mono text-primary-light whitespace-nowrap">{name}</td>
+                    <td className="py-2 text-zinc-500">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Tools */}
+          <div className="border border-border rounded-lg p-5">
+            <div className="font-mono text-xs text-muted tracking-widest uppercase mb-4">MCP tools</div>
+            <div className="space-y-2">
+              {tools.map(t => (
+                <div key={t.name} className="flex gap-3 text-xs">
+                  <code className="text-primary font-mono shrink-0 w-36">{t.name}()</code>
+                  <span className="text-zinc-500">{t.desc}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* MCP Tools */}
-          <div className="bg-surface border border-border rounded-2xl p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 rounded-lg bg-accent/10 text-accent">
-                <Wrench size={20} />
-              </div>
-              <h3 className="font-semibold text-lg">MCP Tool Server</h3>
-            </div>
-            <div className="space-y-2.5">
-              {tools.map(t => (
-                <div key={t.name} className="flex gap-3 items-start">
-                  <code className="text-xs font-mono text-accent bg-accent/10 px-1.5 py-0.5 rounded shrink-0">{t.name}</code>
-                  <span className="text-muted text-xs">{t.desc}</span>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </section>

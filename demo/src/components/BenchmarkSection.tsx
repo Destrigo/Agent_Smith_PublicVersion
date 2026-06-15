@@ -1,50 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
-} from 'recharts';
 import { models } from '../data/benchmarkData';
 
-const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string }>; label?: string }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-surface border border-border rounded-lg p-3 text-xs font-mono shadow-xl">
-      <div className="text-white font-semibold mb-1">{label}</div>
-      {payload.map(p => (
-        <div key={p.name} className="text-muted">
-          {p.name}: <span className="text-accent">{p.value}%</span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
 const findings = [
-  {
-    icon: '⚡',
-    title: 'Scale is the dominant factor',
-    body: 'Models above ~70B parameters achieve 100% on SWE-bench pool tasks. Below that, accuracy degrades sharply regardless of specialisation.',
-  },
-  {
-    icon: '🧠',
-    title: 'Specialisation ≠ better SWE',
-    body: 'codestral (code-specialist) scores 50% on SWE-bench while general-purpose mistral-large scores 100%. Multi-step reasoning matters more than code generation.',
-  },
-  {
-    icon: '💡',
-    title: 'Agentic fine-tuning backfired',
-    body: 'devstral models used 21+ iterations vs 5.8 for general mistral-large, without better results. Fine-tuning at sub-70B scale may over-explore.',
-  },
-  {
-    icon: '💰',
-    title: 'Everything at $0',
-    body: 'All 11 models were evaluated exclusively on free-tier quotas — no paid plans or credits.',
-  },
+  { label: 'Scale beats specialisation', body: 'mistral-large (general) passes 6/6 SWE tasks. codestral (code-specialist) passes 3/6. Multi-step reasoning matters more than code generation quality.' },
+  { label: 'Hard cliff below 70B', body: 'Below ~70B parameters, SWE-bench accuracy degrades sharply. The 3B→8B jump is the biggest single gain; 8B→22B actually regresses.' },
+  { label: 'Agentic fine-tuning backfired', body: 'devstral used 21+ iterations vs 5.8 for mistral-large, without better results. Fine-tuning at sub-70B scale over-explores without improving accuracy.' },
+  { label: '$0 total cost', body: 'All 11 models were evaluated on free-tier API quotas only. mistral-large runs ~0.08 RPS on the Mistral free tier with zero rate-limit hits.' },
 ];
+
+const InlineBar = ({ pct, color = 'bg-primary' }: { pct: number; color?: string }) => (
+  <div className="flex items-center gap-2">
+    <div className="w-20 h-1 bg-border rounded-full overflow-hidden">
+      <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+    </div>
+    <span className="font-mono text-xs w-8 text-right">{pct}%</span>
+  </div>
+);
 
 const BenchmarkSection = () => {
   const ref = useRef<HTMLElement>(null);
   const [visible, setVisible] = useState(false);
-  const [tab, setTab] = useState<'mbpp' | 'swe'>('swe');
+  const [tab, setTab] = useState<'swe' | 'mbpp'>('swe');
 
   useEffect(() => {
     const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) setVisible(true); }, { threshold: 0.05 });
@@ -52,123 +28,92 @@ const BenchmarkSection = () => {
     return () => obs.disconnect();
   }, []);
 
-  const sweSorted = [...models].sort((a, b) => b.swePct - a.swePct);
-  const mbppSorted = [...models].sort((a, b) => b.mbppPct - a.mbppPct);
-
-  const chartData = tab === 'swe'
-    ? sweSorted.map(m => ({ name: m.shortName, 'SWE-bench (pool %)': m.swePct, model: m.name }))
-    : mbppSorted.map(m => ({ name: m.shortName, 'MBPP %': m.mbppPct, model: m.name }));
-
-  const barKey = tab === 'swe' ? 'SWE-bench (pool %)' : 'MBPP %';
-  const topModels = tab === 'swe' ? ['medium', 'large'] : ['GPT-120B', 'large'];
+  const sorted = tab === 'swe'
+    ? [...models].sort((a, b) => b.swePct - a.swePct)
+    : [...models].sort((a, b) => b.mbppPct - a.mbppPct);
 
   return (
-    <section id="benchmark" ref={ref} className="py-24 bg-surface/30">
-      <div className="max-w-6xl mx-auto px-6">
+    <section id="benchmark" ref={ref} className="py-24 border-t border-border">
+      <div className="max-w-5xl mx-auto px-6">
+
         <div className={`section-reveal ${visible ? 'visible' : ''}`}>
-          <h2 className="text-3xl md:text-4xl font-bold mb-2">
-            Benchmark <span className="gradient-text">Results</span>
-          </h2>
-          <div className="w-16 h-1 bg-primary rounded-full mb-4" />
-          <p className="text-muted mb-10 max-w-xl">
-            11 models evaluated across MBPP (257 algorithmic tasks) and SWE-bench (8 real GitHub bugs).
+          <p className="font-mono text-xs text-muted tracking-widest uppercase mb-3">Results</p>
+          <h2 className="text-3xl md:text-4xl font-bold mb-2">Benchmark</h2>
+          <hr className="rule-amber w-12 mb-4" />
+          <p className="text-sm text-zinc-400 mb-10">
+            11 models · 257 MBPP tasks · 8 SWE-bench real bugs · all on free-tier APIs
           </p>
         </div>
 
-        {/* Tab */}
-        <div className={`flex gap-2 mb-8 section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.1s' }}>
-          <button
-            onClick={() => setTab('swe')}
-            className={`px-4 py-2 rounded-lg text-sm font-mono transition-all border ${tab === 'swe' ? 'bg-primary text-white border-primary' : 'text-muted border-border hover:border-primary/50'}`}
-          >
-            SWE-bench
-          </button>
-          <button
-            onClick={() => setTab('mbpp')}
-            className={`px-4 py-2 rounded-lg text-sm font-mono transition-all border ${tab === 'mbpp' ? 'bg-primary text-white border-primary' : 'text-muted border-border hover:border-primary/50'}`}
-          >
-            MBPP
-          </button>
-        </div>
-
-        {/* Chart */}
-        <div className={`bg-surface border border-border rounded-2xl p-6 mb-10 section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.2s' }}>
-          <div className="text-xs font-mono text-muted mb-4">
-            {tab === 'swe' ? 'SWE-bench pool pass rate (6 tasks) — higher is better' : 'MBPP accuracy (257 tasks) — higher is better'}
-          </div>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1a1f35" />
-              <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-              <YAxis tick={{ fill: '#64748b', fontSize: 11 }} domain={[0, 100]} tickFormatter={v => `${v}%`} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey={barKey} radius={[4, 4, 0, 0]}>
-                {chartData.map(entry => (
-                  <Cell
-                    key={entry.name}
-                    fill={topModels.includes(entry.name) ? '#7c3aed' : '#1e2135'}
-                    stroke={topModels.includes(entry.name) ? '#a78bfa' : '#1a1f35'}
-                    strokeWidth={1}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        {/* Tabs */}
+        <div className={`flex gap-1 mb-6 p-1 bg-surface border border-border rounded-lg w-fit section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.1s' }}>
+          {(['swe', 'mbpp'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`font-mono text-xs px-4 py-1.5 rounded transition-all ${
+                tab === t ? 'bg-primary text-black font-semibold' : 'text-muted hover:text-white'
+              }`}
+            >
+              {t === 'swe' ? 'SWE-bench' : 'MBPP'}
+            </button>
+          ))}
         </div>
 
         {/* Table */}
-        <div className={`bg-surface border border-border rounded-2xl overflow-hidden mb-12 section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.3s' }}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left px-4 py-3 text-xs font-mono text-muted">model</th>
-                  <th className="text-right px-4 py-3 text-xs font-mono text-muted">MBPP</th>
-                  <th className="text-right px-4 py-3 text-xs font-mono text-muted">SWE (pool)</th>
-                  <th className="text-right px-4 py-3 text-xs font-mono text-muted hidden md:table-cell">avg iter</th>
-                  <th className="text-right px-4 py-3 text-xs font-mono text-muted hidden md:table-cell">avg time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sweSorted.map((m, i) => (
-                  <tr key={m.name} className={`border-b border-border/50 hover:bg-primary/5 transition-colors ${i < 2 ? 'bg-primary/5' : ''}`}>
-                    <td className="px-4 py-3 font-mono text-xs">
-                      {i < 2 && <span className="text-primary-light mr-2">★</span>}
-                      <span className={i < 2 ? 'text-white' : 'text-muted'}>{m.name}</span>
+        <div className={`border border-border rounded-lg overflow-hidden mb-12 section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.2s' }}>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border bg-surface">
+                <th className="text-left px-4 py-2.5 font-mono text-muted font-normal">#</th>
+                <th className="text-left px-4 py-2.5 font-mono text-muted font-normal">model</th>
+                <th className="text-left px-4 py-2.5 font-mono text-muted font-normal hidden md:table-cell">provider</th>
+                <th className="text-left px-4 py-2.5 font-mono text-muted font-normal">
+                  {tab === 'swe' ? 'SWE-bench (pool 6)' : 'MBPP (257 tasks)'}
+                </th>
+                <th className="text-right px-4 py-2.5 font-mono text-muted font-normal hidden sm:table-cell">
+                  {tab === 'swe' ? 'avg iter' : 'passed'}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((m, i) => {
+                const pct = tab === 'swe' ? m.swePct : m.mbppPct;
+                const barColor = pct === 100 ? 'bg-success' : pct >= 80 ? 'bg-primary' : pct >= 50 ? 'bg-zinc-500' : 'bg-zinc-700';
+                const isTop = i < 2;
+                return (
+                  <tr key={m.name} className={`border-b border-border/50 last:border-0 ${isTop ? 'bg-primary/5' : 'hover:bg-zinc-900'} transition-colors`}>
+                    <td className="px-4 py-2.5 font-mono text-muted">{i + 1}</td>
+                    <td className="px-4 py-2.5 font-mono">
+                      <span className={isTop ? 'text-white' : 'text-zinc-400'}>{m.name}</span>
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-xs">
-                      <span className={m.mbppPct >= 90 ? 'text-success' : m.mbppPct >= 80 ? 'text-accent' : 'text-muted'}>
-                        {m.mbppPct}%
-                      </span>
+                    <td className="px-4 py-2.5 text-zinc-600 hidden md:table-cell">{m.provider}</td>
+                    <td className="px-4 py-2.5">
+                      <InlineBar pct={pct} color={barColor} />
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-xs">
-                      <span className={m.swePct === 100 ? 'text-success' : m.swePct >= 50 ? 'text-accent' : m.swePct > 0 ? 'text-amber-400' : 'text-muted'}>
-                        {m.sweBenchPool}/6 ({m.swePct}%)
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-xs text-muted hidden md:table-cell">
-                      {m.avgIter ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-xs text-muted hidden md:table-cell">
-                      {m.avgTimeSec != null ? `${m.avgTimeSec}s` : '—'}
+                    <td className="px-4 py-2.5 text-right font-mono text-zinc-500 hidden sm:table-cell">
+                      {tab === 'swe'
+                        ? (m.avgIter != null ? m.avgIter : '—')
+                        : m.mbppPassed
+                      }
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
 
-        {/* Key findings */}
-        <div className={`grid sm:grid-cols-2 gap-4 section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.4s' }}>
+        {/* Findings */}
+        <div className={`grid sm:grid-cols-2 gap-4 section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.3s' }}>
           {findings.map(f => (
-            <div key={f.title} className="bg-surface border border-border rounded-xl p-5">
-              <div className="text-2xl mb-3">{f.icon}</div>
-              <div className="font-semibold text-sm mb-2">{f.title}</div>
-              <div className="text-muted text-xs leading-relaxed">{f.body}</div>
+            <div key={f.label} className="border-l-2 border-primary/40 pl-4 py-1">
+              <div className="text-sm font-semibold mb-1">{f.label}</div>
+              <div className="text-xs text-zinc-400 leading-relaxed">{f.body}</div>
             </div>
           ))}
         </div>
+
       </div>
     </section>
   );

@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Brain, Code2, Eye, Search, FileText, Edit3, Play } from 'lucide-react';
 import { agentTrace } from '../data/benchmarkData';
 
-const toolIcons: Record<string, React.ReactNode> = {
-  grep_context: <Search size={14} />,
-  read_file: <FileText size={14} />,
-  edit_file: <Edit3 size={14} />,
-  run_command: <Play size={14} />,
+const toolColor: Record<string, string> = {
+  grep_context: 'text-zinc-400',
+  read_file:    'text-zinc-400',
+  edit_file:    'text-primary',
+  run_command:  'text-success',
 };
 
 const AgentTrace = () => {
@@ -24,123 +23,114 @@ const AgentTrace = () => {
   const step = agentTrace.steps[activeStep];
 
   return (
-    <section id="trace" ref={ref} className="py-24">
-      <div className="max-w-6xl mx-auto px-6">
+    <section id="trace" ref={ref} className="py-24 border-t border-border">
+      <div className="max-w-5xl mx-auto px-6">
+
         <div className={`section-reveal ${visible ? 'visible' : ''}`}>
-          <h2 className="text-3xl md:text-4xl font-bold mb-2">
-            Live <span className="gradient-text">Agent Trace</span>
-          </h2>
-          <div className="w-16 h-1 bg-primary rounded-full mb-4" />
-          <p className="text-muted mb-2 max-w-xl">
-            Real run on <code className="text-accent text-sm font-mono">sympy__sympy-13480</code> — a NameError bug in SymPy's hyperbolic functions.
-            Solved in <strong className="text-white">4 iterations</strong>, <strong className="text-white">14k tokens</strong>, <strong className="text-white">10 seconds</strong>.
+          <p className="font-mono text-xs text-muted tracking-widest uppercase mb-3">Live run</p>
+          <h2 className="text-3xl md:text-4xl font-bold mb-2">Agent trace</h2>
+          <hr className="rule-amber w-12 mb-6" />
+          <p className="text-sm text-zinc-400 mb-2">
+            Real execution on{' '}
+            <code className="font-mono text-primary text-xs">{agentTrace.taskId}</code>.
+            Solved in <strong className="text-white">{agentTrace.iterations} iterations</strong>,{' '}
+            <strong className="text-white">{agentTrace.inputTokens.toLocaleString()} tokens</strong>,{' '}
+            <strong className="text-white">{agentTrace.totalTimeSec}s</strong>.
           </p>
         </div>
 
-        {/* Issue banner */}
-        <div className={`mt-8 mb-8 p-4 rounded-xl border border-amber-400/20 bg-amber-400/5 section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.1s' }}>
-          <div className="text-xs font-mono text-amber-400 mb-2">ISSUE</div>
-          <p className="text-sm text-slate-300 leading-relaxed">{agentTrace.issue}</p>
+        {/* Issue block */}
+        <div className={`mt-8 mb-6 border-l-2 border-zinc-700 pl-4 section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.1s' }}>
+          <div className="font-mono text-xs text-muted uppercase tracking-wider mb-1">Issue</div>
+          <p className="text-sm text-zinc-300 leading-relaxed">{agentTrace.issue}</p>
         </div>
 
-        {/* Step selector */}
-        <div className={`flex flex-wrap gap-2 mb-6 section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.2s' }}>
+        {/* Step tabs */}
+        <div className={`flex flex-wrap gap-2 mb-5 section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.15s' }}>
           {agentTrace.steps.map((s, i) => (
             <button
               key={s.step}
               onClick={() => { setActiveStep(i); setShowPatch(false); }}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-mono transition-all border ${
+              className={`font-mono text-xs px-3 py-1.5 rounded border transition-all ${
                 activeStep === i && !showPatch
-                  ? 'bg-primary text-white border-primary glow-primary'
-                  : 'text-muted border-border hover:border-primary/50 hover:text-white'
+                  ? 'bg-primary text-black border-primary font-semibold'
+                  : 'text-muted border-border hover:border-zinc-500 hover:text-white'
               }`}
             >
-              {toolIcons[s.tool]}
-              Step {s.step}: {s.label}
+              {s.step}. {s.label}
             </button>
           ))}
           <button
             onClick={() => setShowPatch(true)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-mono transition-all border ${
+            className={`font-mono text-xs px-3 py-1.5 rounded border transition-all ${
               showPatch
-                ? 'bg-success text-white border-success'
+                ? 'bg-success text-black border-success font-semibold'
                 : 'text-muted border-border hover:border-success/50 hover:text-success'
             }`}
           >
-            ✓ Final Patch
+            ✓ patch
           </button>
         </div>
 
-        {/* Content */}
         {!showPatch ? (
-          <div className={`grid md:grid-cols-2 gap-4 section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.3s' }}>
-            {/* Left: Thought */}
-            <div className="space-y-4">
-              <div className="bg-surface border border-border rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-3 text-primary-light">
-                  <Brain size={15} />
-                  <span className="text-xs font-mono uppercase tracking-wider">Thought</span>
-                </div>
-                <p className="text-sm text-slate-300 leading-relaxed">{step.thought}</p>
-              </div>
+          <div className={`grid md:grid-cols-2 gap-4 section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.2s' }}>
 
-              {/* Tool badge */}
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent/10 border border-accent/20 w-fit">
-                <span className="text-accent">{toolIcons[step.tool]}</span>
-                <code className="text-xs font-mono text-accent">{step.tool}()</code>
+            {/* Thought + Code */}
+            <div className="space-y-3">
+              <div className="border border-border rounded-lg p-4">
+                <div className="font-mono text-xs text-muted uppercase tracking-wider mb-3">Thought</div>
+                <p className="text-sm text-zinc-300 leading-relaxed">{step.thought}</p>
               </div>
-
-              {/* Code */}
-              <div className="bg-surface border border-border rounded-xl overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-[#0d1117]">
-                  <Code2 size={13} className="text-muted" />
-                  <span className="text-xs font-mono text-muted">sandbox input</span>
+              <div className="bg-[#0d1117] border border-border rounded-lg overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+                  <span className="font-mono text-xs text-muted">code → sandbox</span>
+                  <code className={`font-mono text-xs ${toolColor[step.tool] ?? 'text-zinc-400'}`}>{step.tool}()</code>
                 </div>
-                <pre className="code-block border-0 rounded-none text-xs">{step.code}</pre>
+                <pre className="p-4 font-mono text-xs text-zinc-300 leading-relaxed overflow-x-auto whitespace-pre">{step.code}</pre>
               </div>
             </div>
 
-            {/* Right: Observation */}
-            <div className="bg-surface border border-border rounded-xl overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-[#0d1117]">
-                <Eye size={13} className="text-muted" />
-                <span className="text-xs font-mono text-muted">observation</span>
-                {step.status === 'ok' && (
-                  <span className="ml-auto text-xs text-success font-mono">● ok</span>
-                )}
+            {/* Observation */}
+            <div className="bg-[#0d1117] border border-border rounded-lg overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+                <span className="font-mono text-xs text-muted">observation</span>
+                <span className="font-mono text-xs text-success">● ok</span>
               </div>
-              <pre className="code-block border-0 rounded-none text-xs h-full min-h-[200px]">{step.observation}</pre>
+              <pre className="p-4 font-mono text-xs text-zinc-400 leading-relaxed overflow-x-auto whitespace-pre flex-1">{step.observation}</pre>
             </div>
+
           </div>
         ) : (
-          <div className={`bg-surface border border-border rounded-xl overflow-hidden section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.3s' }}>
-            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-[#0d1117]">
-              <span className="text-xs font-mono text-success">✓ patch applied — tests pass</span>
-              <span className="ml-auto text-xs text-muted font-mono">git diff HEAD</span>
+          <div className={`bg-[#0d1117] border border-border rounded-lg overflow-hidden section-reveal ${visible ? 'visible' : ''}`} style={{ transitionDelay: '0.2s' }}>
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+              <span className="font-mono text-xs text-success">✓ patch — tests pass</span>
+              <span className="font-mono text-xs text-muted">git diff HEAD</span>
             </div>
-            <div className="p-4 font-mono text-xs leading-relaxed">
+            <div className="p-4 font-mono text-xs leading-relaxed space-y-0.5">
               {agentTrace.patch.split('\n').map((line, i) => (
                 <div
                   key={i}
                   className={
-                    line.startsWith('+') && !line.startsWith('+++') ? 'diff-add px-2 rounded' :
-                    line.startsWith('-') && !line.startsWith('---') ? 'diff-remove px-2 rounded' :
-                    line.startsWith('@@') || line.startsWith('diff') || line.startsWith('index') || line.startsWith('---') || line.startsWith('+++') ? 'diff-meta' :
-                    'text-slate-400'
+                    line.startsWith('+') && !line.startsWith('+++') ? 'diff-add rounded px-1' :
+                    line.startsWith('-') && !line.startsWith('---') ? 'diff-remove rounded px-1' :
+                    line.startsWith('@@') || line.startsWith('diff') || line.startsWith('index') || line.startsWith('---') || line.startsWith('+++')
+                      ? 'diff-meta' : 'text-zinc-500'
                   }
                 >
-                  {line || ' '}
+                  {line || ' '}
                 </div>
               ))}
             </div>
-            <div className="px-4 py-3 border-t border-border bg-success/5 flex items-center gap-4 text-xs text-muted font-mono">
+            <div className="px-4 py-3 border-t border-border bg-success/5 flex flex-wrap gap-x-6 gap-y-1 font-mono text-xs text-zinc-500">
               <span className="text-success">● passed</span>
               <span>{agentTrace.iterations} iterations</span>
               <span>{agentTrace.inputTokens.toLocaleString()} input tokens</span>
               <span>{agentTrace.totalTimeSec}s wall clock</span>
+              <span>1 line changed</span>
             </div>
           </div>
         )}
+
       </div>
     </section>
   );
